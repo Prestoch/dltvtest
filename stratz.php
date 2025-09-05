@@ -141,26 +141,19 @@ if(is_array($od_heroes)){
 	}
 }
 
-// 1) fetch live series (derive active matchId and team names)
-$live_q = 'query { live { series { id event { id name tier } matches { id liveMatch { matchId } } teams { isRadiant team { id name tag } } } } }';
+// 1) fetch live matches
+$live_q = '{ live { matches { matchId radiantTeam { id name tag } direTeam { id name tag } } } }';
 $live_res = stratz_graphql($live_q, new stdClass(), $stratz_token);
-if(!$live_res || !isset($live_res['data']) || !isset($live_res['data']['live']) || !isset($live_res['data']['live']['series'])){
+if(!$live_res || !isset($live_res['data']) || !isset($live_res['data']['live']) || !isset($live_res['data']['live']['matches'])){
 	rdie(['error'=>'No live data']);
 }
-$live_series = $live_res['data']['live']['series'];
+$live_matches = $live_res['data']['live']['matches'];
 
 // 2) iterate and build game objects using picks/bans
 $res_matches = [];
-foreach($live_series as $sr){
-	$match_id = null;
-	if(isset($sr['matches']) && is_array($sr['matches'])){
-		foreach($sr['matches'] as $mm){
-			if(isset($mm['liveMatch']) && isset($mm['liveMatch']['matchId']) && $mm['liveMatch']['matchId']){
-				$match_id = $mm['liveMatch']['matchId'];
-			}
-		}
-	}
-	if(!$match_id){ continue; }
+foreach($live_matches as $lm){
+	if(!isset($lm['matchId'])){ continue; }
+	$match_id = $lm['matchId'];
 	// get draft
 	$pb_q = 'query($id: Long!){ match(id:$id){ pickBans { isPick isRadiant heroId order } league { id tier name } } }';
 	$pb_res = stratz_graphql($pb_q, ['id'=>$match_id], $stratz_token);
