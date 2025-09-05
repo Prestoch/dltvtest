@@ -141,13 +141,13 @@ if(is_array($od_heroes)){
 	}
 }
 
-// 1) fetch live matches
-$live_q = '{ live { matches { matchId radiantTeam { id name tag } direTeam { id name tag } } } }';
+// 1) fetch live matches (minimal fields for broad schema compatibility)
+$live_q = '{ live { matches { matchId } } }';
 $live_res = stratz_graphql($live_q, new stdClass(), $stratz_token);
-if(!$live_res || !isset($live_res['data']) || !isset($live_res['data']['live']) || !isset($live_res['data']['live']['matches'])){
-	rdie(['error'=>'No live data']);
+$live_matches = [];
+if($live_res && isset($live_res['data']) && isset($live_res['data']['live']) && isset($live_res['data']['live']['matches'])){
+	$live_matches = $live_res['data']['live']['matches'];
 }
-$live_matches = $live_res['data']['live']['matches'];
 
 // 2) iterate and build game objects using picks/bans
 $res_matches = [];
@@ -187,20 +187,8 @@ foreach($live_matches as $lm){
 
 	$team1 = [];
 	$team2 = [];
-	// team names from series teams
-	$radName = 'Radiant';
-	$direName = 'Dire';
-	if(isset($sr['teams']) && is_array($sr['teams'])){
-		foreach($sr['teams'] as $tt){
-			if(isset($tt['isRadiant']) && $tt['isRadiant'] && isset($tt['team']['name']) && $tt['team']['name']){
-				$radName = $tt['team']['name'];
-			}elseif(isset($tt['isRadiant']) && !$tt['isRadiant'] && isset($tt['team']['name']) && $tt['team']['name']){
-				$direName = $tt['team']['name'];
-			}
-		}
-	}
-	$team1['name'] = $radName;
-	$team2['name'] = $direName;
+	$team1['name'] = 'Radiant';
+	$team2['name'] = 'Dire';
 	$team1['ss'] = 'Radiant';
 	$team2['ss'] = 'Dire';
 	$team1['heroes'] = [];
