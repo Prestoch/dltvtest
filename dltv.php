@@ -579,7 +579,7 @@ foreach($res_matches as $m){
 			//$mail->addAddress($email_destination);
 			
 			if($debug){
-				$mail->addAddress('glennwilkinsd@gmail.com');
+				$mail->addAddress('razorgamefun@gmail.com');
 			}else if(isset($dltv_email)){
 				$mail->addAddress($dltv_email);
 				//$mail->addAddress('glennwilkinsd@gmail.com');

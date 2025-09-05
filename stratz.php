@@ -401,7 +401,7 @@ foreach($res_matches as $m){
 				$mail->Port       = $smtp_port;
 				$mail->setFrom($smtp_from, $smtp_from_name);
 				if($debug){
-					$mail->addAddress('glennwilkinsd@gmail.com');
+					$mail->addAddress('razorgamefun@gmail.com');
 				}else if(isset($dltv_email)){
 					$mail->addAddress($dltv_email);
 				}
