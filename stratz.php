@@ -141,19 +141,26 @@ if(is_array($od_heroes)){
 	}
 }
 
-// 1) fetch live matches
-$live_q = '{ live { matches { matchId radiantTeam { id name tag } direTeam { id name tag } } } }';
+// 1) fetch live series (derive active matchId and team names)
+$live_q = 'query { live { series { id event { id name tier } matches { id liveMatch { matchId } } teams { isRadiant team { id name tag } } } } }';
 $live_res = stratz_graphql($live_q, new stdClass(), $stratz_token);
-if(!$live_res || !isset($live_res['data']) || !isset($live_res['data']['live']) || !isset($live_res['data']['live']['matches'])){
+if(!$live_res || !isset($live_res['data']) || !isset($live_res['data']['live']) || !isset($live_res['data']['live']['series'])){
 	rdie(['error'=>'No live data']);
 }
-$live_matches = $live_res['data']['live']['matches'];
+$live_series = $live_res['data']['live']['series'];
 
 // 2) iterate and build game objects using picks/bans
 $res_matches = [];
-foreach($live_matches as $lm){
-	if(!isset($lm['matchId'])){ continue; }
-	$match_id = $lm['matchId'];
+foreach($live_series as $sr){
+	$match_id = null;
+	if(isset($sr['matches']) && is_array($sr['matches'])){
+		foreach($sr['matches'] as $mm){
+			if(isset($mm['liveMatch']) && isset($mm['liveMatch']['matchId']) && $mm['liveMatch']['matchId']){
+				$match_id = $mm['liveMatch']['matchId'];
+			}
+		}
+	}
+	if(!$match_id){ continue; }
 	// get draft
 	$pb_q = 'query($id: Long!){ match(id:$id){ pickBans { isPick isRadiant heroId order } league { id tier name } } }';
 	$pb_res = stratz_graphql($pb_q, ['id'=>$match_id], $stratz_token);
@@ -187,8 +194,20 @@ foreach($live_matches as $lm){
 
 	$team1 = [];
 	$team2 = [];
-	$team1['name'] = isset($lm['radiantTeam']['name']) && $lm['radiantTeam']['name'] ? $lm['radiantTeam']['name'] : 'Radiant';
-	$team2['name'] = isset($lm['direTeam']['name']) && $lm['direTeam']['name'] ? $lm['direTeam']['name'] : 'Dire';
+	// team names from series teams
+	$radName = 'Radiant';
+	$direName = 'Dire';
+	if(isset($sr['teams']) && is_array($sr['teams'])){
+		foreach($sr['teams'] as $tt){
+			if(isset($tt['isRadiant']) && $tt['isRadiant'] && isset($tt['team']['name']) && $tt['team']['name']){
+				$radName = $tt['team']['name'];
+			}elseif(isset($tt['isRadiant']) && !$tt['isRadiant'] && isset($tt['team']['name']) && $tt['team']['name']){
+				$direName = $tt['team']['name'];
+			}
+		}
+	}
+	$team1['name'] = $radName;
+	$team2['name'] = $direName;
 	$team1['ss'] = 'Radiant';
 	$team2['ss'] = 'Dire';
 	$team1['heroes'] = [];
