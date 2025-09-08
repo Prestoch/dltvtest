@@ -1,0 +1,27 @@
+name: Build cs.json (Dotabuff)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install deps
+        run: |
+          npm init -y >/dev/null 2>&1 || true
+          npm i puppeteer@22
+      - name: Scrape Dotabuff -> cs.json
+        run: node wrg/scrape_dotabuff.js
+      - name: Commit cs.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add cs.json
+          git commit -m "Update cs.json [skip ci]" || echo "No changes"
+          git push
