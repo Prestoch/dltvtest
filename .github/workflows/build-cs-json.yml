@@ -15,7 +15,7 @@ jobs:
       - name: Install deps
         run: |
           npm init -y >/dev/null 2>&1 || true
-          npm i puppeteer@22
+          npm i puppeteer@22 puppeteer-extra puppeteer-extra-plugin-stealth
       - name: Scrape Dotabuff -> cs.json
         run: node wrg/scrape_dotabuff.js
       - name: Commit cs.json
