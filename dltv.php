@@ -138,19 +138,38 @@ if(!$gc){
 }
 
 $html = str_get_html($gc);
-$bases = $html->find('div[class=live__matches-item]');
+
+// Prefer live JSON over HTML (site is now JS-rendered)
 $links = [];
-foreach($bases as $b){
-    foreach($b->find('a') as $a){
-        if($a->hasAttribute('href')){
-            $href = explode('#',$a->getAttribute('href'))[0];
-            if(strpos($href,'matches') !== false){
-                if(!in_array($href,$links)){
-                    $links[] = $href;
-                }
-            }
-        }
-    }
+$live_series_gc = get_html('https://dltv.org/live/series.json');
+if($live_series_gc){
+	$live_series = json_decode($live_series_gc,true);
+	if(is_array($live_series) && isset($live_series['live']) && is_array($live_series['live']) && sizeof($live_series['live'])){
+		foreach($live_series['live'] as $live_match_id => $series_id){
+			$links[] = [
+				'url' => 'https://dltv.org/matches/'.$series_id,
+				'series_id' => $series_id,
+				'match_id' => $live_match_id
+			];
+		}
+	}
+}
+
+// Fallback to old HTML selectors if live JSON returns nothing
+if(!sizeof($links)){
+	$bases = $html->find('div[class=live__matches-item]');
+	foreach($bases as $b){
+		foreach($b->find('a') as $a){
+			if($a->hasAttribute('href')){
+				$href = explode('#',$a->getAttribute('href'))[0];
+				if(strpos($href,'matches') !== false){
+					if(!in_array($href,$links)){
+						$links[] = $href;
+					}
+				}
+			}
+		}
+	}
 }
 
 //var_dump(cn('mars'));
@@ -166,18 +185,28 @@ $res_matches = [];
 foreach($links as $a){
 
 	//$file = $mf.'/cyber.'.$m['mid'].'.json';
-	$the_id = basename($a);
+	if(is_array($a)){
+		$series_id = $a['series_id'];
+		$current_match_id = $a['match_id'];
+		$a_url = $a['url'];
+		$the_id = $series_id;
+	}else{
+		$series_id = basename($a);
+		$current_match_id = '';
+		$a_url = $a;
+		$the_id = $series_id;
+	}
 	$the_file = $mf.'/cyber.'.$the_id.'.json';
 	if(!$debug&&file_exists($the_file)){
 		continue;
 	}
 
-    $b = get_html($a);
+    $b = get_html($a_url);
     if($b){
         $c = str_get_html($b);
         $nm = [];
         
-        $lps = explode('/',$a);
+        $lps = explode('/',$a_url);
         $nm['match_id'] = '';
         $nm['mid'] = '';
 
@@ -199,121 +228,87 @@ foreach($links as $a){
             }
         }
 
-        $ims = $c->find('div[class=info__match]');
-        if($ims&&sizeof($ims)){
-            $imf = explode(' ',$ims[0]->plaintext);
-            foreach($imf as $iim){
-                $the_mid = trim($iim);
-                if(is_numeric($the_mid)){
-                    $nm['mid'] = $nm['match_id'].'_'.$the_mid;
-                }
-            }
+        // Determine current live match id (prefer JSON mapping)
+        if(!$current_match_id){
+        	$ims = $c->find('div[class=info__match]');
+        	if($ims&&sizeof($ims)){
+        		$imf = explode(' ',$ims[0]->plaintext);
+        		foreach($imf as $iim){
+        			$maybe_mid = trim($iim);
+        			if(is_numeric($maybe_mid)){
+        				$current_match_id = $maybe_mid;
+        			}
+        		}
+        	}
+        }
+        if($current_match_id){
+        	$nm['mid'] = $nm['match_id'].'_'.$current_match_id;
         }
 
         $team1 = [];
         $team2 = [];
 
-        
-		$bases = $c->find('div[id=live_scoreboard]');
-        if(!$bases||!sizeof($bases)){
-			//$bases = $c->find('div[class*=map__finished-title__content]');
-        }
-        if($bases&&sizeof($bases)){
-            $base = $bases[0];
-            $spans = $base->find('span[class=team__title-name]');
-			$sl = 0;
-            foreach($spans as $sps){
-                $sp = $sps->find('span[class*=side]');
-                $tn = $sps->find('span[class=name]');
-                if(sizeof($sp)&&sizeof($tn)){
-                    $tnn = $tn[0]->plaintext;
-                    $ss = $sp[0]->plaintext;
-                    if($ss&&$ss=='Radiant'){
-                        $team1['name'] = $tnn;
-						$team1['ss'] = $ss;
-                        $tp_logo = $sps->parent()->find('span[class=team__title-logo]')[0]->getAttribute('style');
-                        if($tp_logo){
-                            preg_match_all('/background-image: url\(\'(.*?)\'\)/',$tp_logo,$ass);
-                            //pre($ass);
-                            if(isset($ass[1])&&isset($ass[1][0])){
-                                $team1['logo_url'] = 'https://dltv.org'.$ass[1][0];
-                            }
-                        }
-                    }else if($ss&&$ss=='Dire'){
-                        $team2['name'] = $tnn;
-						$team2['ss'] = $ss;
-                        $tp_logo = $sps->parent()->find('span[class=team__title-logo]')[0]->getAttribute('style');
-                        if($tp_logo){
-                            preg_match_all('/background-image: url\(\'(.*?)\'\)/',$tp_logo,$ass);
-                            //pre($ass);
-                            if(isset($ass[1])&&isset($ass[1][0])){
-                                $team2['logo_url'] = 'https://dltv.org'.$ass[1][0];
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        // Build teams and picks using live JSON (more reliable than JS-rendered HTML)
         $team1['heroes'] = [];
         $team2['heroes'] = [];
+        if($current_match_id){
+        	$live_json_gc = get_html('https://dltv.org/live/'.$current_match_id.'.json');
+        	$live_json = json_decode($live_json_gc,true);
+        	if(is_array($live_json)){
+        		// Determine Radiant/Dire teams
+        		if(isset($live_json['db']) && isset($live_json['db']['first_team']) && isset($live_json['db']['second_team'])){
+        			$first = $live_json['db']['first_team'];
+        			$second = $live_json['db']['second_team'];
+        			$radiant = $first;
+        			$dire = $second;
+        			if(isset($first['is_radiant']) && !$first['is_radiant']){
+        				$radiant = $second;
+        				$dire = $first;
+        			}
+        			if(isset($radiant['title'])){ $team1['name'] = $radiant['title']; $team1['ss'] = 'Radiant'; }
+        			if(isset($dire['title'])){ $team2['name'] = $dire['title']; $team2['ss'] = 'Dire'; }
+        			if(isset($radiant['image']) && $radiant['image']){ $team1['logo_url'] = (strpos($radiant['image'],'http')===0?$radiant['image']:'https://dltv.org'.$radiant['image']); }
+        			if(isset($dire['image']) && $dire['image']){ $team2['logo_url'] = (strpos($dire['image'],'http')===0?$dire['image']:'https://dltv.org'.$dire['image']); }
+        		}
 
-        $teams_bases = $c->find('div[class*=picks__new-picks__picks]');
-        foreach($teams_bases as $tb){
-            if(strpos($tb->class,'radiant') !== false){
-                $picks = $tb->find('div[class*=pick]');
-                foreach($picks as $p){
-                    if($p->hasAttribute('data-hero-id')){
-                        $id = $p->getAttribute('data-hero-id');
-                        $hero_name = $p->getAttribute('data-tippy-content');
-                        if($id){
-                            $hh = [];
-                            //$hh['id'] = $id;
-                            $hh['id'] = array_search(cn($hero_name),$hero);
-							$hh['hname'] = $hero_name;
-                            $fimgs = $p->find('div[class=pick__image]');
-                            if(sizeof($fimgs)&&$fimgs[0]){
-                                preg_match('/background-image: url\(\'(.*?)\'\)/',$fimgs[0]->getAttribute('style'),$fims);
-                                if(isset($fims[1])){
-                                    $hh['image'] = 'https://dltv.org'.$fims[1];
-                                }
-                            }
-                            $pss = $p->find('a[class=pick__stats]');
-                            if(sizeof($pss)&&$pss[0]){
-                                $ps = str_replace(' | ',' - ',str_replace('%','',$pss[0]->plaintext));;
-                                $hh['wcc'] = $ps;
-                            }
-                            $team1['heroes'][] = $hh;
-                        }
-                    }
-                }
-            }elseif(strpos($tb->class,'dire') !== false){
-                $picks = $tb->find('div[class*=pick]');
-                foreach($picks as $p){
-                    if($p->hasAttribute('data-hero-id')){
-                        $id = $p->getAttribute('data-hero-id');
-                        $hero_name = $p->getAttribute('data-tippy-content');
-                        if($id){
-                            $hh = [];
-                            //$hh['id'] = $id;
-                            $hh['id'] = array_search(cn($hero_name),$hero);
-							$hh['hname'] = $hero_name;
-                            $fimgs = $p->find('div[class=pick__image]');
-                            if(sizeof($fimgs)&&$fimgs[0]){
-                                preg_match('/background-image: url\(\'(.*?)\'\)/',$fimgs[0]->getAttribute('style'),$fims);
-                                if(isset($fims[1])){
-                                    $hh['image'] = 'https://dltv.org'.$fims[1];
-                                }
-                            }
-                            $pss = $p->find('a[class=pick__stats]');
-                            if(sizeof($pss)&&$pss[0]){
-                                $ps = str_replace(' | ',' - ',str_replace('%','',$pss[0]->plaintext));;
-                                $hh['wcc'] = $ps;
-                            }
-                            $team2['heroes'][] = $hh;
-                        }
-                    }
-                }
-            }
+        		// Picks: prefer live scoreboard picks; fallback to DB picks
+        		$rad_picks = [];
+        		$dire_picks = [];
+        		if(isset($live_json['scoreboard']) && isset($live_json['scoreboard']['radiant']['picks']) && isset($live_json['scoreboard']['dire']['picks'])){
+        			$rad_picks = $live_json['scoreboard']['radiant']['picks'];
+        			$dire_picks = $live_json['scoreboard']['dire']['picks'];
+        		}
+        		if((!sizeof($rad_picks) || !sizeof($dire_picks)) && isset($live_json['db'])){
+        			// Map DB picks to radiant/dire based on is_radiant flags
+        			if(isset($live_json['db']['first_team']['is_radiant']) && $live_json['db']['first_team']['is_radiant']){
+        				$rad_picks = isset($live_json['db']['first_team']['picks']) ? $live_json['db']['first_team']['picks'] : [];
+        				$dire_picks = isset($live_json['db']['second_team']['picks']) ? $live_json['db']['second_team']['picks'] : [];
+        			}else{
+        				$rad_picks = isset($live_json['db']['second_team']['picks']) ? $live_json['db']['second_team']['picks'] : [];
+        				$dire_picks = isset($live_json['db']['first_team']['picks']) ? $live_json['db']['first_team']['picks'] : [];
+        			}
+        		}
+
+        		$build_pick = function($pick) use ($hero){
+        			$hh = [];
+        			$hname = '';
+        			$himg = '';
+        			$wcc = '';
+        			if(isset($pick['hero']) && is_array($pick['hero'])){
+        				if(isset($pick['hero']['title'])){ $hname = $pick['hero']['title']; }
+        				if(isset($pick['hero']['image'])){ $himg = $pick['hero']['image']; }
+        			}
+        			if(isset($pick['team_stats'])){ $wcc = str_replace(' | ',' - ',str_replace('%','',$pick['team_stats'])); }
+        			$hh['id'] = array_search(cn($hname),$hero);
+        			$hh['hname'] = $hname;
+        			if($himg){ $hh['image'] = (strpos($himg,'http')===0?$himg:'https://dltv.org'.$himg); }
+        			if($wcc){ $hh['wcc'] = $wcc; }
+        			return $hh;
+        		};
+
+        		foreach($rad_picks as $p){ $team1['heroes'][] = $build_pick($p); }
+        		foreach($dire_picks as $p){ $team2['heroes'][] = $build_pick($p); }
+        	}
         }
 
         $nm['team1'] = $team1;
@@ -584,7 +579,7 @@ foreach($res_matches as $m){
 			//$mail->addAddress($email_destination);
 			
 			if($debug){
-				$mail->addAddress('glennwilkinsd@gmail.com');
+				$mail->addAddress('razorgamefun@gmail.com');
 			}else if(isset($dltv_email)){
 				$mail->addAddress($dltv_email);
 				//$mail->addAddress('glennwilkinsd@gmail.com');
