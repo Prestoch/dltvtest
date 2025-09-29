@@ -59,6 +59,23 @@ if(file_exists('settings/set.json')){
 		if(isset($set['scr_token'])){
 			$scr_token = $set['scr_token'];
 		}
+		// Notification condition toggles (defaults: all enabled, aggregator = all)
+		$enable_cond_1 = true;
+		$enable_cond_2 = true;
+		$enable_cond_3 = true;
+		$enable_cond_4 = true;
+		$enable_cond_5 = true;
+		$conditions_agg = 'all';
+		if(isset($set['conds']) && is_array($set['conds'])){
+			if(array_key_exists('c1',$set['conds'])){ $enable_cond_1 = !!$set['conds']['c1']; }
+			if(array_key_exists('c2',$set['conds'])){ $enable_cond_2 = !!$set['conds']['c2']; }
+			if(array_key_exists('c3',$set['conds'])){ $enable_cond_3 = !!$set['conds']['c3']; }
+			if(array_key_exists('c4',$set['conds'])){ $enable_cond_4 = !!$set['conds']['c4']; }
+			if(array_key_exists('c5',$set['conds'])){ $enable_cond_5 = !!$set['conds']['c5']; }
+		}
+		if(isset($set['agg'])){
+			$conditions_agg = ($set['agg'] === 'any') ? 'any' : 'all';
+		}
 	}
 }
 
