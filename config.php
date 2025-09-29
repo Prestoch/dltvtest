@@ -39,11 +39,11 @@ if(file_exists('settings/set.json')){
 	$set = json_decode(file_get_contents('settings/set.json'),true);
 	if(is_array($set)){
 		$team_have_plus = $set['pns'];
-		$email_destination = $set['email']['add'];
-		$cyber_email = $set['cyber_email'];
-		$dltv_email = $set['dltv_email'];
-		$egw_email = $set['egw_email'];
-		$hero_have = $set['hh'];
+		$email_destination = (isset($set['email']) && isset($set['email']['add'])) ? $set['email']['add'] : '';
+		$cyber_email = isset($set['cyber_email']) ? $set['cyber_email'] : '';
+		$dltv_email = isset($set['dltv_email']) ? $set['dltv_email'] : '';
+		$egw_email = isset($set['egw_email']) ? $set['egw_email'] : '';
+		$hero_have = isset($set['hh']) ? $set['hh'] : [];
 		$email_if_less = (int) $set['less'];
 		$email_if_greater = (int) $set['greater'];
 		$anh_have = isset($set['anh']) ? $set['anh'] : [];

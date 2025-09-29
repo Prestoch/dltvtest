@@ -5,8 +5,6 @@ error_reporting(E_ALL);
 $set = [];
 $set['pns'] = [];
 $set['email'] = [];
-$set['email']['from'] = 'Razorgame Fun';
-$set['email']['add'] = 'razorgamefun@gmail.com';
 $set['hh'] = [];
 $set['td_g'] = '';
 $set['td_l'] = '';
@@ -23,24 +21,23 @@ if(isset($_POST['s'])){
 			$set['anh'] = $anh_items;
 		}
 	}
-	if(isset($_POST['email_from'])){
-		$set['email']['from'] = $_POST['email_from'];
-	}
-	if(isset($_POST['email_add'])){
-		$set['email']['add'] = $_POST['email_add'];
-	}
+    // DLTV email only
 	if(isset($_POST['scr_token'])){
 		$set['scr_token'] = $_POST['scr_token'];
-	}
-	if(isset($_POST['cyber_email'])){
-		$set['cyber_email'] = $_POST['cyber_email'];
 	}
 	if(isset($_POST['dltv_email'])){
 		$set['dltv_email'] = $_POST['dltv_email'];
 	}
-	if(isset($_POST['egw_email'])){
-		$set['egw_email'] = $_POST['egw_email'];
-	}
+    // persist condition toggles and aggregator
+    if(isset($_POST['conds'])){
+        $conds = json_decode($_POST['conds'],true);
+        if(is_array($conds)){
+            $set['conds'] = $conds;
+        }
+    }
+    if(isset($_POST['agg'])){
+        $set['agg'] = ($_POST['agg'] === 'any') ? 'any' : 'all';
+    }
 	if(isset($_POST['hrs'])){
 		$hh = json_decode($_POST['hrs'],true);
 		$i = [];
@@ -173,4 +170,34 @@ if(isset($_POST['rem_x_prox'])){
 	}
 	echo json_encode($set);
 	die();
+}
+
+// Handle send test email from settings UI
+if(isset($_POST['send_test'])){
+    require_once dirname(__DIR__).'/config.php';
+    require_once dirname(__DIR__).'/vendor/autoload.php';
+    try{
+        $mail = new PHPMailer\PHPMailer\PHPMailer(true);
+        $mail->isSMTP();
+        $mail->Host       = $smtp_host;
+        $mail->SMTPAuth   = true;
+        $mail->Username   = $smtp_user;
+        $mail->Password   = $smtp_pass;
+        $mail->SMTPSecure = $smtp_pro;
+        $mail->Port       = $smtp_port;
+        $mail->setFrom($smtp_from, $smtp_from_name);
+        $to = isset($set['dltv_email']) ? $set['dltv_email'] : $smtp_from;
+        $mail->addAddress($to);
+        $mail->CharSet = 'UTF-8';
+        $mail->isHTML(true);
+        $mail->Subject = 'DLTV Test Email';
+        $mail->Body    = '<b>This is a test email from settings.</b>';
+        $mail->AltBody = 'This is a test email from settings.';
+        $mail->SMTPOptions = array('ssl'=>array('verify_peer'=>false,'verify_peer_name'=>false,'allow_self_signed'=>true));
+        $mail->send();
+        echo json_encode(['status'=>'Test email sent to '.$to]);
+    }catch(Exception $e){
+        echo json_encode(['status'=>'Send failed']);
+    }
+    die();
 }

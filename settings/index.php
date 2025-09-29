@@ -32,45 +32,66 @@ require_once 'a.php';
 	<div class="row mb-5">
 		<div class="col-md-12">
 			<div class="card">
-				<div class="card-header">
-					Email Notification
-				</div>
-				<div class="card-body">
-					<div class="row">
-						<!--
-						<div class="col-md-3">
-							<div class="form-group">
-								<label>From Name</label>
-								<input type="text" class="form-control" id="email_from" value="<?php _e(isset($set['email'])&&isset($set['email']['from'])?$set['email']['from']:'Razorgame Fun');?>">
-							</div>
-						</div>
-						-->
-						<div class="col-md-3">
-							<div class="form-group">
-								<label>Address</label>
-								<input type="email" class="form-control" id="email_add" value="<?php _e(isset($set['email'])&&isset($set['email']['add'])?$set['email']['add']:'razorgamefun@gmail.com');?>">
-							</div>
-						</div>
-						<div class="col-md-3">
-							<div class="form-group">
-								<label>Cyber Address</label>
-								<input type="email" class="form-control" id="cyber_email" value="<?php _e(isset($set['cyber_email'])?$set['cyber_email']:'razorgamefun@gmail.com');?>">
-							</div>
-						</div>
-						<div class="col-md-3">
-							<div class="form-group">
-								<label>DLTV Address</label>
-								<input type="email" class="form-control" id="dltv_email" value="<?php _e(isset($set['dltv_email'])?$set['dltv_email']:'razorgamefun@gmail.com');?>">
-							</div>
-						</div>
-						<div class="col-md-3">
-							<div class="form-group">
-								<label>EGW Address</label>
-								<input type="email" class="form-control" id="egw_email" value="<?php _e(isset($set['egw_email'])?$set['egw_email']:'razorgamefun@gmail.com');?>">
-							</div>
-						</div>
-					</div>
-				</div>
+                <div class="card-header">
+                    Email Notification
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label>DLTV Address</label>
+                                <input type="email" class="form-control" id="dltv_email" value="<?php _e(isset($set['dltv_email'])?$set['dltv_email']:'');?>">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label>Conditions Mode</label>
+                                <select class="form-control" id="conds_agg">
+                                    <option value="all" <?php echo (isset($set['agg']) && $set['agg']==='any')?'':'selected';?>>All selected must match</option>
+                                    <option value="any" <?php echo (isset($set['agg']) && $set['agg']==='any')?'selected':'';?>>Any selected may match</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-12">
+                            <label class="form-label">Enable Conditions</label>
+                            <?php 
+                                $conds = isset($set['conds']) && is_array($set['conds']) ? $set['conds'] : [];
+                                $c1 = isset($conds['c1']) ? (bool)$conds['c1'] : true;
+                                $c2 = isset($conds['c2']) ? (bool)$conds['c2'] : true;
+                                $c3 = isset($conds['c3']) ? (bool)$conds['c3'] : true;
+                                $c4 = isset($conds['c4']) ? (bool)$conds['c4'] : true;
+                                $c5 = isset($conds['c5']) ? (bool)$conds['c5'] : true;
+                            ?>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input cond_chk" type="checkbox" id="cond_c1" <?php echo $c1?'checked':'';?>>
+                                <label class="form-check-label" for="cond_c1">Condition 1 (Total threshold)</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input cond_chk" type="checkbox" id="cond_c2" <?php echo $c2?'checked':'';?>>
+                                <label class="form-check-label" for="cond_c2">Condition 2 (Team PN match)</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input cond_chk" type="checkbox" id="cond_c3" <?php echo $c3?'checked':'';?>>
+                                <label class="form-check-label" for="cond_c3">Condition 3 (Have hero)</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input cond_chk" type="checkbox" id="cond_c4" <?php echo $c4?'checked':'';?>>
+                                <label class="form-check-label" for="cond_c4">Condition 4 (Any hero WR2)</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input cond_chk" type="checkbox" id="cond_c5" <?php echo $c5?'checked':'';?>>
+                                <label class="form-check-label" for="cond_c5">Condition 5 (Tower damage)</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-12">
+                            <button type="button" class="btn btn-outline-primary" id="send_test">Send Test Email</button>
+                        </div>
+                    </div>
+                </div>
 			</div>
 		</div>
 	</div>
@@ -428,10 +449,6 @@ const save = b => {
 		form.append('email_from',_id('email_from').value);
 	}
 	*/
-	if(_id('email_add')&&_id('email_add').value){
-		form.append('email_add',_id('email_add').value);
-	}
-
 	if(_id('scr_token')&&_id('scr_token').value){
 		form.append('scr_token',_id('scr_token').value);
 	}
@@ -448,9 +465,11 @@ const save = b => {
 	form.append('hrs',JSON.stringify(hrs));
 	form.append('greater',_id('greater').value);
 	form.append('less',_id('less').value);
-	form.append('cyber_email',_id('cyber_email').value);
 	form.append('dltv_email',_id('dltv_email').value);
-	form.append('egw_email',_id('egw_email').value);
+	// conditions toggles and aggregator
+	let conds = { c1: _id('cond_c1').checked, c2: _id('cond_c2').checked, c3: _id('cond_c3').checked, c4: _id('cond_c4').checked, c5: _id('cond_c5').checked };
+	form.append('conds',JSON.stringify(conds));
+	form.append('agg',_id('conds_agg').value);
 	net.onreadystatechange = function(){
 		if(net.readyState===4){
 			b.disabled = false;
@@ -559,6 +578,29 @@ _id('gcs').addEventListener('click',()=>{
 	generate_cs();
 	_id('gcs').disabled = true;
 	_id('gcs').setAttribute('data-old',_id('gcs').innerText);
+});
+
+// Send test email
+_id('send_test').addEventListener('click',()=>{
+    _id('send_test').disabled = true;
+    _id('send_test').innerHTML = 'Sending...';
+    let net = new XMLHttpRequest();
+    let form = new FormData();
+    form.append('send_test',true);
+    net.onreadystatechange=function(){
+        if(net.readyState===4){
+            _id('send_test').disabled = false;
+            _id('send_test').innerHTML = 'Send Test Email';
+            try{
+                let r = JSON.parse(net.responseText);
+                alert(r && r.status ? r.status : 'Done');
+            }catch(e){
+                alert('Done');
+            }
+        }
+    };
+    net.open('POST','',true);
+    net.send(form);
 });
 </script>
 
