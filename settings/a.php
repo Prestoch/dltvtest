@@ -113,13 +113,14 @@ $bg = extract_js_array($csjson,'heroes_bg');
 if(!is_array($bg)){
     die('cs.json heroes_bg problem');
 }
+// Optional fields (not required for settings UI)
 $h_wr = extract_js_array($csjson,'heroes_wr');
 if(!is_array($h_wr)){
-    die('cs.json heroes_wr problem');
+    $h_wr = [];
 }
 $h_wrs = extract_js_array($csjson,'win_rates');
 if(!is_array($h_wrs)){
-    die('cs.json win_rates problem');
+    $h_wrs = [];
 }
 $hero = [];
 function pre($a){
