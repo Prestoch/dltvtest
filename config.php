@@ -35,6 +35,13 @@ $td_g = '';
 $td_l = '';
 $prox = [];
 $scr_token = false;
+// Defaults for notification controls
+$enable_cond_1 = true;
+$enable_cond_2 = true;
+$enable_cond_3 = true;
+$enable_cond_4 = true;
+$enable_cond_5 = true;
+$conditions_agg = 'all';
 if(file_exists('settings/set.json')){
 	$set = json_decode(file_get_contents('settings/set.json'),true);
 	if(is_array($set)){
