@@ -136,35 +136,79 @@ $html = str_get_html($gc);
 
 // Prefer live JSON over HTML (site is now JS-rendered)
 $links = [];
-$live_series_gc = get_html('https://dltv.org/live/series.json');
-if($live_series_gc){
-	$live_series = json_decode($live_series_gc,true);
-	if(is_array($live_series) && isset($live_series['live']) && is_array($live_series['live']) && sizeof($live_series['live'])){
-		foreach($live_series['live'] as $live_match_id => $series_id){
-			$links[] = [
-				'url' => 'https://dltv.org/matches/'.$series_id,
-				'series_id' => $series_id,
-				'match_id' => $live_match_id
-			];
-		}
-	}
+// Try multiple live endpoints to be robust against upstream changes
+$live_endpoints = [
+    'https://dltv.org/live/series.json',
+    'https://dltv.org/live/index.json',
+    'https://dltv.org/live/list.json',
+    'https://dltv.org/live.json'
+];
+foreach($live_endpoints as $lep){
+    if(sizeof($links)) break;
+    $live_series_gc = get_html($lep);
+    if(!$live_series_gc) continue;
+    $live_series = json_decode($live_series_gc,true);
+    if(!$live_series) continue;
+    // Case 1: { live: { match_id: series_id, ... } }
+    if(is_array($live_series) && isset($live_series['live']) && is_array($live_series['live']) && sizeof($live_series['live'])){
+        foreach($live_series['live'] as $live_match_id => $series_id){
+            if(!$series_id) continue;
+            $links[] = [
+                'url' => 'https://dltv.org/matches/'.$series_id,
+                'series_id' => $series_id,
+                'match_id' => $live_match_id
+            ];
+        }
+        continue;
+    }
+    // Case 2: array of items with series id
+    if(is_array($live_series) && sizeof($live_series)){
+        foreach($live_series as $item){
+            if(is_array($item)){
+                $series_id = null;
+                if(isset($item['series_id'])){ $series_id = $item['series_id']; }
+                else if(isset($item['seriesId'])){ $series_id = $item['seriesId']; }
+                else if(isset($item['id'])){ $series_id = $item['id']; }
+                if($series_id && is_numeric($series_id)){
+                    $links[] = [
+                        'url' => 'https://dltv.org/matches/'.$series_id,
+                        'series_id' => $series_id,
+                        'match_id' => ''
+                    ];
+                }
+            }
+        }
+    }
 }
 
 // Fallback to old HTML selectors if live JSON returns nothing
 if(!sizeof($links)){
-	$bases = $html->find('div[class=live__matches-item]');
-	foreach($bases as $b){
-		foreach($b->find('a') as $a){
-			if($a->hasAttribute('href')){
-				$href = explode('#',$a->getAttribute('href'))[0];
-				if(strpos($href,'matches') !== false){
-					if(!in_array($href,$links)){
-						$links[] = $href;
-					}
-				}
-			}
-		}
-	}
+    // Fallback 1: original selector
+    $bases = $html->find('div[class=live__matches-item]');
+    foreach($bases as $b){
+        foreach($b->find('a') as $a){
+            if($a->hasAttribute('href')){
+                $href = explode('#',$a->getAttribute('href'))[0];
+                if(preg_match('#/matches/\\d+#',$href)){
+                    $links[] = 'https://dltv.org'.(strpos($href,'http')===0?$href:($href[0]=='/'?$href:'/'.$href));
+                }
+            }
+        }
+    }
+}
+if(!sizeof($links)){
+    // Fallback 2: scan all anchors for /matches/{id}
+    foreach($html->find('a') as $a){
+        if($a->hasAttribute('href')){
+            $href = explode('#',$a->getAttribute('href'))[0];
+            if(preg_match('#/matches/\\d+#',$href)){
+                $full = 'https://dltv.org'.(strpos($href,'http')===0?$href:($href[0]=='/'?$href:'/'.$href));
+                if(!in_array($full,$links)){
+                    $links[] = $full;
+                }
+            }
+        }
+    }
 }
 
 //var_dump(cn('mars'));
@@ -225,16 +269,27 @@ foreach($links as $a){
 
         // Determine current live match id (prefer JSON mapping)
         if(!$current_match_id){
-        	$ims = $c->find('div[class=info__match]');
-        	if($ims&&sizeof($ims)){
-        		$imf = explode(' ',$ims[0]->plaintext);
-        		foreach($imf as $iim){
-        			$maybe_mid = trim($iim);
-        			if(is_numeric($maybe_mid)){
-        				$current_match_id = $maybe_mid;
-        			}
-        		}
-        	}
+            // try original selector
+            $ims = $c->find('div[class=info__match]');
+            if($ims&&sizeof($ims)){
+                $imf = explode(' ',$ims[0]->plaintext);
+                foreach($imf as $iim){
+                    $maybe_mid = trim($iim);
+                    if(is_numeric($maybe_mid)){
+                        $current_match_id = $maybe_mid;
+                    }
+                }
+            }
+            // try data attributes
+            if(!$current_match_id){
+                foreach($c->find('*[data-match-id]') as $dm){
+                    $mid = trim($dm->getAttribute('data-match-id'));
+                    if(is_numeric($mid)){
+                        $current_match_id = $mid;
+                        break;
+                    }
+                }
+            }
         }
         if($current_match_id){
         	$nm['mid'] = $nm['match_id'].'_'.$current_match_id;
@@ -247,7 +302,11 @@ foreach($links as $a){
         $team1['heroes'] = [];
         $team2['heroes'] = [];
         if($current_match_id){
-        	$live_json_gc = get_html('https://dltv.org/live/'.$current_match_id.'.json');
+            // attempt multiple live endpoints for match id
+            $live_json_gc = get_html('https://dltv.org/live/'.$current_match_id.'.json');
+            if(!$live_json_gc){
+                $live_json_gc = get_html('https://dltv.org/live/matches/'.$current_match_id.'.json');
+            }
         	$live_json = json_decode($live_json_gc,true);
         	if(is_array($live_json)){
         		// Determine Radiant/Dire teams
