@@ -95,32 +95,31 @@ if(!file_exists(dirname(dirname(__FILE__)).'/cs.json')){
 	die('cs.json not found');
 }
 $csjson = file_get_contents(dirname(dirname(__FILE__)).'/cs.json');
-$f1 = explode(', heroes_bg = ',$csjson);
-$f2 = explode('var heroes = ',$f1[0]);
-if(!isset($f2[1])){
-	die('cs.json heroes problem #1');
+function extract_js_array($content,$name){
+    $pattern = '/(?:var\s+)?'.preg_quote($name,'/').'\s*=\s*(\[[\s\S]*?\])\s*(?:,|;)/s';
+    if(preg_match($pattern,$content,$m)){
+        $arr = json_decode($m[1],true);
+        if(is_array($arr)){
+            return $arr;
+        }
+    }
+    return null;
 }
-$h = json_decode($f2[1],true);
+$h = extract_js_array($csjson,'heroes');
 if(!is_array($h)){
-	die('cs.json heroes problem #2');
+    die('cs.json heroes problem');
 }
-$f3 = explode(', win_rates =',$csjson);
-$f4 = explode(', heroes_wr = ',$f3[0]);
-if(!isset($f4[1])){
-	die('cs.json heroes_wr problem');
+$bg = extract_js_array($csjson,'heroes_bg');
+if(!is_array($bg)){
+    die('cs.json heroes_bg problem');
 }
-$h_wr = json_decode($f4[1],true);
+$h_wr = extract_js_array($csjson,'heroes_wr');
 if(!is_array($h_wr)){
-	die('cs.json heroes_wr problem');
+    die('cs.json heroes_wr problem');
 }
-$f5 = explode('win_rates = ',$csjson);
-if(!isset($f5[1])){
-	die('cs.json win_rates problem');
-}
-$f6 = explode(', update_time',$f5[1]);
-$h_wrs = json_decode($f6[0],true);
+$h_wrs = extract_js_array($csjson,'win_rates');
 if(!is_array($h_wrs)){
-	die('cs.json win_rates problem');
+    die('cs.json win_rates problem');
 }
 $hero = [];
 function pre($a){
@@ -137,9 +136,6 @@ function get_hero_id($a){
 	global $hero;
 	return array_search(cn($a),$hero);
 }
-$f_bga = $f1[1];
-$f_bgb = explode(', heroes_wr =',$f_bga);
-$bg = json_decode($f_bgb[0],true);
 function bg($i){
 	global $bg;
 	if(is_int($i)&&isset($bg[$i])){
