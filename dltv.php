@@ -60,7 +60,7 @@ if(!file_exists(dirname(__FILE__).'/cs.json')){
 }
 $csjson = file_get_contents(dirname(__FILE__).'/cs.json');
 function extract_js_array($content,$name){
-    $pattern = '/(?:var\s+)?'.preg_quote($name,'/').'\s*=\s*(\[[\s\S]*?\])\s*(?:,|;)/s';
+    $pattern = '/(?:var|let|const)?\s*'.preg_quote($name,'/').'\s*=\s*(\[[\s\S]*?\])\s*(?:,|;)/s';
     if(preg_match($pattern,$content,$m)){
         $arr = json_decode($m[1],true);
         if(is_array($arr)){
@@ -75,11 +75,11 @@ if(!is_array($h)){
 }
 $h_wr = extract_js_array($csjson,'heroes_wr');
 if(!is_array($h_wr)){
-    die('cs.json heroes_wr problem');
+    $h_wr = [];
 }
 $h_wrs = extract_js_array($csjson,'win_rates');
 if(!is_array($h_wrs)){
-    die('cs.json win_rates problem');
+    $h_wrs = [];
 }
 $hero = [];
 function cn($s){
@@ -349,8 +349,8 @@ foreach($res_matches as $m){
       $td_2 = 0;
       $td_1 = 0;
 		for($i=0;$i<5;$i++){
-			$m['team1']['heroes'][$i]['wr'] = $h_wr[$m['team1']['heroes'][$i]['id']];
-			$m['team2']['heroes'][$i]['wr'] = $h_wr[$m['team2']['heroes'][$i]['id']];
+            $m['team1']['heroes'][$i]['wr'] = isset($h_wr[$m['team1']['heroes'][$i]['id']]) ? $h_wr[$m['team1']['heroes'][$i]['id']] : '0';
+            $m['team2']['heroes'][$i]['wr'] = isset($h_wr[$m['team2']['heroes'][$i]['id']]) ? $h_wr[$m['team2']['heroes'][$i]['id']] : '0';
 			if(in_array($m['team2']['heroes'][$i]['id'],$hero_have) || in_array($m['team1']['heroes'][$i]['id'],$hero_have)){
 				$hero_have_hh = true;
 			}
@@ -370,10 +370,18 @@ foreach($res_matches as $m){
 			
 			$nb1a = 0;
 			$nb2a = 0;
-			for($a=0;$a<5;$a++){
-				$nb1a+=floatval($h_wrs[$m['team2']['heroes'][$a]['id']][$m['team1']['heroes'][$i]['id']][0])*-1;
-				$nb2a+=floatval($h_wrs[$m['team1']['heroes'][$a]['id']][$m['team2']['heroes'][$i]['id']][0])*-1;
-			}
+            for($a=0;$a<5;$a++){
+                $v12 = 0;
+                if(isset($h_wrs[$m['team2']['heroes'][$a]['id']]) && isset($h_wrs[$m['team2']['heroes'][$a]['id']][$m['team1']['heroes'][$i]['id']]) && isset($h_wrs[$m['team2']['heroes'][$a]['id']][$m['team1']['heroes'][$i]['id']][0])){
+                    $v12 = floatval($h_wrs[$m['team2']['heroes'][$a]['id']][$m['team1']['heroes'][$i]['id']][0]);
+                }
+                $nb1a += $v12*-1;
+                $v21 = 0;
+                if(isset($h_wrs[$m['team1']['heroes'][$a]['id']]) && isset($h_wrs[$m['team1']['heroes'][$a]['id']][$m['team2']['heroes'][$i]['id']]) && isset($h_wrs[$m['team1']['heroes'][$a]['id']][$m['team2']['heroes'][$i]['id']][0])){
+                    $v21 = floatval($h_wrs[$m['team1']['heroes'][$a]['id']][$m['team2']['heroes'][$i]['id']][0]);
+                }
+                $nb2a += $v21*-1;
+            }
 			$m['team1']['heroes'][$i]['wr_2_success'] = $nb1a > 0 ? false : true;
 			$m['team2']['heroes'][$i]['wr_2_success'] = $nb2a > 0 ? false : true;
 			
