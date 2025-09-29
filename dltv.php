@@ -463,9 +463,9 @@ foreach($res_matches as $m){
          $gh.='</div>';
 		$gh.='</div>';
 		
-      $gh.='<div style="width:100%;display:block;align-items:center;justify-content:space-between;">';
+     $gh.='<div style="width:100%;display:block;align-items:center;justify-content:space-between;">';
          $gh.='<h3 style="display:inline-block;">'.$m['team2']['name'].'</h3>';
-		 if(isset($$tower_damage)){
+         if(isset($tower_damage)){
          $gh.='<div style="display:inline-block;margin-left:388px;font-weight:bold;color:'.($td_1 > $td_2 ? '#cb8300':'#00a6f5').';">'.($td_1 > $td_2 ? ($td_1 - $td_2) : ($td_2 - $td_1)).'</div>';
 		 }
       $gh.='</div>';
@@ -560,9 +560,23 @@ foreach($res_matches as $m){
 			}
 		}
 		
-		echo '<pre>'.json_encode($mets,JSON_PRETTY_PRINT).'</pre>';
+        echo '<pre>'.json_encode($mets,JSON_PRETTY_PRINT).'</pre>';
+		// Evaluate condition toggles and aggregator
+		$conds_eval = [];
+		if(isset($enable_cond_1) && $enable_cond_1){ $conds_eval[] = $cond_one; }
+		if(isset($enable_cond_2) && $enable_cond_2){ $conds_eval[] = $cond_2; }
+		if(isset($enable_cond_3) && $enable_cond_3){ $conds_eval[] = $cond_3; }
+		if(isset($enable_cond_4) && $enable_cond_4){ $conds_eval[] = $cond_4; }
+		if(isset($enable_cond_5) && $enable_cond_5){ $conds_eval[] = $cond_5; }
+		$should_send = true;
+		if(isset($conditions_agg) && $conditions_agg === 'any'){
+			$should_send = sizeof($conds_eval) === 0 ? true : in_array(true,$conds_eval,true);
+		}else{
+			$should_send = sizeof($conds_eval) === 0 ? true : !in_array(false,$conds_eval,true);
+		}
+
 		//if(1){
-		if($debug||($cond_one&&$cond_2&&$cond_3&&$cond_4&&$cond_5)){
+		if($debug||$should_send){
 		$mail = new PHPMailer(true);
 		try {
 			//Server settings
@@ -578,13 +592,16 @@ foreach($res_matches as $m){
 			$mail->setFrom($smtp_from, $smtp_from_name);
 			//$mail->addAddress($email_destination);
 			
+			// Determine recipient with fallbacks
+			$to_email = '';
 			if($debug){
-				$mail->addAddress('razorgamefun@gmail.com');
-			}else if(isset($dltv_email)){
-				$mail->addAddress($dltv_email);
-				//$mail->addAddress('glennwilkinsd@gmail.com');
-				//$mail->addAddress('glennwilkinsd@gmail.com');
+				$to_email = 'razorgamefun@gmail.com';
+			}else{
+				if(isset($dltv_email) && $dltv_email){ $to_email = $dltv_email; }
+				else if(isset($email_destination) && $email_destination){ $to_email = $email_destination; }
+				else { $to_email = $smtp_from; }
 			}
+			$mail->addAddress($to_email);
 			//$mail->addAddress('glennwilkinsd@gmail.com');
 			
          $mail->SMTPOptions = array(
@@ -603,8 +620,18 @@ foreach($res_matches as $m){
 			
 			$mail->send();
 			echo 'email sent';
+			// basic logging
+			$log_dir = __DIR__.'/logs';
+			if(!file_exists($log_dir)) { @mkdir($log_dir,0777,true); }
+			$log_file = $log_dir.'/mail_'.date('Ymd').'.log';
+			@file_put_contents($log_file, date('c')." SENT dltv mid=".$m['mid']." to=".$to_email.PHP_EOL, FILE_APPEND);
 		} catch (Exception $e) {
 			echo 'email error';
+			$log_dir = __DIR__.'/logs';
+			if(!file_exists($log_dir)) { @mkdir($log_dir,0777,true); }
+			$log_file = $log_dir.'/mail_'.date('Ymd').'.log';
+			$err = isset($mail) ? $mail->ErrorInfo : '';
+			@file_put_contents($log_file, date('c')." ERROR dltv mid=".$m['mid']." err=".$err.' ex='.$e->getMessage().PHP_EOL, FILE_APPEND);
 		}
 		echo '<br/>';
 		}else {
