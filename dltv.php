@@ -47,6 +47,15 @@ function test_html($a){
 	fwrite($fp,$a);
 	fclose($fp);
 }
+function fetch_url_direct($u){
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_URL,$u);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+	curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 6.2; WOW64; rv:17.0) Gecko/20100101 Firefox/17.0');
+	$o = curl_exec($ch);
+	curl_close($ch);
+	return $o;
+}
 $mf = dirname(__FILE__).'/matches_dltv';
 $checked_f = dirname(__FILE__).'/checked';
 if (!file_exists($mf)) {
@@ -125,6 +134,9 @@ foreach($h as $hh){
 
 $u = 'https://dltv.org/matches';
 $gc = get_html($u);
+if(!$gc){
+    $gc = fetch_url_direct($u);
+}
 
 //echo $gc;die();
 
@@ -146,6 +158,9 @@ $live_endpoints = [
 foreach($live_endpoints as $lep){
     if(sizeof($links)) break;
     $live_series_gc = get_html($lep);
+    if(!$live_series_gc){
+        $live_series_gc = fetch_url_direct($lep);
+    }
     if(!$live_series_gc) continue;
     $live_series = json_decode($live_series_gc,true);
     if(!$live_series) continue;
@@ -190,7 +205,8 @@ if(!sizeof($links)){
             if($a->hasAttribute('href')){
                 $href = explode('#',$a->getAttribute('href'))[0];
                 if(preg_match('#/matches/\\d+#',$href)){
-                    $links[] = 'https://dltv.org'.(strpos($href,'http')===0?$href:($href[0]=='/'?$href:'/'.$href));
+                    $full = (strpos($href,'http')===0) ? $href : ('https://dltv.org'.($href[0]=='/'?$href:'/'.$href));
+                    $links[] = $full;
                 }
             }
         }
@@ -202,7 +218,7 @@ if(!sizeof($links)){
         if($a->hasAttribute('href')){
             $href = explode('#',$a->getAttribute('href'))[0];
             if(preg_match('#/matches/\\d+#',$href)){
-                $full = 'https://dltv.org'.(strpos($href,'http')===0?$href:($href[0]=='/'?$href:'/'.$href));
+                $full = (strpos($href,'http')===0) ? $href : ('https://dltv.org'.($href[0]=='/'?$href:'/'.$href));
                 if(!in_array($full,$links)){
                     $links[] = $full;
                 }
