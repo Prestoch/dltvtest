@@ -141,7 +141,7 @@ foreach($h as $hh){
 // $tower_damage = json_decode(file_get_contents($tdf),true);
 
 $u = 'https://dltv.org/matches';
-$gc = get_html($u);
+$gc = get_html_V2($u);
 if(!$gc){
     $gc = fetch_url_direct($u);
 }
@@ -170,7 +170,7 @@ $live_endpoints = [
 ];
 foreach($live_endpoints as $lep){
     if(sizeof($links)) break;
-    $live_series_gc = get_html($lep);
+    $live_series_gc = get_html_V2($lep);
     if(!$live_series_gc){
         $live_series_gc = fetch_url_direct($lep);
     }
@@ -317,7 +317,7 @@ foreach($links as $a){
 		continue;
 	}
 
-    $b = get_html($a_url);
+    $b = get_html_V2($a_url);
     if($b){
         $c = str_get_html($b);
         $nm = [];
@@ -378,8 +378,8 @@ foreach($links as $a){
         $team2['heroes'] = [];
         if($current_match_id){
             // attempt multiple live endpoints for match id
-            $live_json_gc = get_html('https://dltv.org/live/'.$current_match_id.'.json');
-            if(!$live_json_gc){ $live_json_gc = get_html('https://dltv.org/live/matches/'.$current_match_id.'.json'); }
+            $live_json_gc = get_html_V2('https://dltv.org/live/'.$current_match_id.'.json');
+            if(!$live_json_gc){ $live_json_gc = get_html_V2('https://dltv.org/live/matches/'.$current_match_id.'.json'); }
             if(!$live_json_gc){ $live_json_gc = fetch_url_direct('https://dltv.org/live/'.$current_match_id.'.json'); }
             if(!$live_json_gc){ $live_json_gc = fetch_url_direct('https://dltv.org/live/matches/'.$current_match_id.'.json'); }
             if($debug){ echo 'LIVE JSON len='.($live_json_gc?strlen($live_json_gc):0)." mid=$current_match_id<br/>"; }
