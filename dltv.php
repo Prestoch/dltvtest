@@ -52,6 +52,8 @@ function fetch_url_direct($u){
 	curl_setopt($ch, CURLOPT_URL,$u);
 	curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 	curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 6.2; WOW64; rv:17.0) Gecko/20100101 Firefox/17.0');
+	curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+	curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
 	$o = curl_exec($ch);
 	curl_close($ch);
 	return $o;
@@ -148,6 +150,9 @@ $html = str_get_html($gc);
 
 // Prefer live JSON over HTML (site is now JS-rendered)
 $links = [];
+$links_from_series = 0;
+$links_from_tiles = 0;
+$links_from_anchors = 0;
 // Try multiple live endpoints to be robust against upstream changes
 $live_endpoints = [
     'https://dltv.org/live/series.json',
@@ -173,6 +178,7 @@ foreach($live_endpoints as $lep){
                 'series_id' => $series_id,
                 'match_id' => $live_match_id
             ];
+            $links_from_series++;
         }
         continue;
     }
@@ -190,6 +196,7 @@ foreach($live_endpoints as $lep){
                         'series_id' => $series_id,
                         'match_id' => ''
                     ];
+                    $links_from_series++;
                 }
             }
         }
@@ -207,6 +214,7 @@ if(!sizeof($links)){
                 if(preg_match('#/matches/\\d+#',$href)){
                     $full = (strpos($href,'http')===0) ? $href : ('https://dltv.org'.($href[0]=='/'?$href:'/'.$href));
                     $links[] = $full;
+                    $links_from_tiles++;
                 }
             }
         }
@@ -221,6 +229,7 @@ if(!sizeof($links)){
                 $full = (strpos($href,'http')===0) ? $href : ('https://dltv.org'.($href[0]=='/'?$href:'/'.$href));
                 if(!in_array($full,$links)){
                     $links[] = $full;
+                    $links_from_anchors++;
                 }
             }
         }
@@ -234,6 +243,9 @@ if(!sizeof($links)){
 //pre($res_matches);die();
 
 if(!sizeof($links)){
+    if($debug){
+        echo 'SERIES links: '.$links_from_series.'; TILE links: '.$links_from_tiles.'; ANCHOR links: '.$links_from_anchors.'<br/>';
+    }
     rdie(['error'=>'No live games']);
 }
 $res_matches = [];
