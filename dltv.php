@@ -393,8 +393,20 @@ foreach($links as $a){
                     if($debug){ echo 'ALT LIVE JSON2 len='.($live_json_gc?strlen($live_json_gc):0).' url='.$alt_live2."<br/>"; }
                 }
             }
-        	$live_json = $live_json_gc ? json_decode($live_json_gc,true) : null;
-        	if(is_array($live_json)){
+	        $live_json = $live_json_gc ? json_decode($live_json_gc,true) : null;
+	        if(!is_array($live_json) && isset($_SERVER['HTTP_HOST'])){
+	            // If decode failed (blocked HTML), still try local tmp fallbacks
+	            $alt_live = 'http://'.$_SERVER['HTTP_HOST'].'/tmp/live_'.$current_match_id.'.json';
+	            $live_json_gc2 = fetch_url_direct($alt_live);
+	            if($debug){ echo 'ALT LIVE JSON (decode-fallback) len='.( $live_json_gc2?strlen($live_json_gc2):0 ).' url='.$alt_live."<br/>"; }
+	            if(!$live_json_gc2){
+	                $alt_live2 = 'http://'.$_SERVER['HTTP_HOST'].'/tmp/'.$current_match_id.'.json';
+	                $live_json_gc2 = fetch_url_direct($alt_live2);
+	                if($debug){ echo 'ALT LIVE JSON2 (decode-fallback) len='.( $live_json_gc2?strlen($live_json_gc2):0 ).' url='.$alt_live2."<br/>"; }
+	            }
+	            if($live_json_gc2){ $live_json = json_decode($live_json_gc2,true); }
+	        }
+	        if(is_array($live_json)){
         		// Determine Radiant/Dire teams
         		if(isset($live_json['db']) && isset($live_json['db']['first_team']) && isset($live_json['db']['second_team'])){
         			$first = $live_json['db']['first_team'];
