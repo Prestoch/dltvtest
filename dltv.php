@@ -54,6 +54,12 @@ function fetch_url_direct($u){
 	curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 6.2; WOW64; rv:17.0) Gecko/20100101 Firefox/17.0');
 	curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
 	curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+	curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+	curl_setopt($ch, CURLOPT_HTTPHEADER, [
+		'Accept: */*',
+		'Accept-Language: en-US,en;q=0.9',
+		'Referer: https://dltv.org/matches'
+	]);
 	$o = curl_exec($ch);
 	curl_close($ch);
 	return $o;
@@ -147,6 +153,7 @@ if(!$gc){
 }
 
 $html = str_get_html($gc);
+if($debug){ echo 'HTML len: '.strlen($gc)."<br/>"; }
 
 // Prefer live JSON over HTML (site is now JS-rendered)
 $links = [];
@@ -156,6 +163,7 @@ $links_from_anchors = 0;
 // Try multiple live endpoints to be robust against upstream changes
 $live_endpoints = [
     'https://dltv.org/live/series.json',
+    'https://ru.dltv.org/live/series.json',
     'https://dltv.org/live/index.json',
     'https://dltv.org/live/list.json',
     'https://dltv.org/live.json'
@@ -167,6 +175,7 @@ foreach($live_endpoints as $lep){
         $live_series_gc = fetch_url_direct($lep);
     }
     if(!$live_series_gc) continue;
+    if($debug){ echo 'EP: '.$lep.' len='.strlen($live_series_gc)."<br/>"; }
     $live_series = json_decode($live_series_gc,true);
     if(!$live_series) continue;
     // Case 1: { live: { match_id: series_id, ... } }
