@@ -333,14 +333,12 @@ foreach($links as $a){
             }
         }
 
-        $fst = $c->find('section[class=event__title]')[0];
-        if($fst){
-            $fsta = $fst->find('a')[0];
-            if($fsta){
-                $fst_text = trim($fsta->plaintext);
-                if($fst_text){
-                    $nm['name'] = $fst_text;
-                }
+        $fsa = $c ? $c->find('section[class=event__title]') : [];
+        if($fsa && isset($fsa[0])){
+            $fsta = $fsa[0]->find('a');
+            if($fsta && isset($fsta[0])){
+                $fst_text = trim($fsta[0]->plaintext);
+                if($fst_text){ $nm['name'] = $fst_text; }
             }
         }
 
@@ -381,10 +379,21 @@ foreach($links as $a){
         if($current_match_id){
             // attempt multiple live endpoints for match id
             $live_json_gc = get_html('https://dltv.org/live/'.$current_match_id.'.json');
-            if(!$live_json_gc){
-                $live_json_gc = get_html('https://dltv.org/live/matches/'.$current_match_id.'.json');
+            if(!$live_json_gc){ $live_json_gc = get_html('https://dltv.org/live/matches/'.$current_match_id.'.json'); }
+            if(!$live_json_gc){ $live_json_gc = fetch_url_direct('https://dltv.org/live/'.$current_match_id.'.json'); }
+            if(!$live_json_gc){ $live_json_gc = fetch_url_direct('https://dltv.org/live/matches/'.$current_match_id.'.json'); }
+            if($debug){ echo 'LIVE JSON len='.($live_json_gc?strlen($live_json_gc):0)." mid=$current_match_id<br/>"; }
+            if((!$live_json_gc) && isset($_SERVER['HTTP_HOST'])){
+                $alt_live = 'http://'.$_SERVER['HTTP_HOST'].'/tmp/live_'.$current_match_id.'.json';
+                $live_json_gc = fetch_url_direct($alt_live);
+                if($debug){ echo 'ALT LIVE JSON len='.($live_json_gc?strlen($live_json_gc):0).' url='.$alt_live."<br/>"; }
+                if(!$live_json_gc){
+                    $alt_live2 = 'http://'.$_SERVER['HTTP_HOST'].'/tmp/'.$current_match_id.'.json';
+                    $live_json_gc = fetch_url_direct($alt_live2);
+                    if($debug){ echo 'ALT LIVE JSON2 len='.($live_json_gc?strlen($live_json_gc):0).' url='.$alt_live2."<br/>"; }
+                }
             }
-        	$live_json = json_decode($live_json_gc,true);
+        	$live_json = $live_json_gc ? json_decode($live_json_gc,true) : null;
         	if(is_array($live_json)){
         		// Determine Radiant/Dire teams
         		if(isset($live_json['db']) && isset($live_json['db']['first_team']) && isset($live_json['db']['second_team'])){
