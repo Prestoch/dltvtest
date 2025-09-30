@@ -214,6 +214,24 @@ foreach($live_endpoints as $lep){
 
 // Fallback to old HTML selectors if live JSON returns nothing
 if(!sizeof($links)){
+    // Try local tmp series fallback on same host (for debugging on server)
+    if(isset($_SERVER['HTTP_HOST'])){
+        $alt_series = 'http://'.$_SERVER['HTTP_HOST'].'/tmp/live_series.json';
+        $alt_gc = fetch_url_direct($alt_series);
+        if($debug){ echo 'ALT EP: '.$alt_series.' len='.( $alt_gc ? strlen($alt_gc) : 0 )."<br/>"; }
+        $alt = $alt_gc ? json_decode($alt_gc,true) : null;
+        if(is_array($alt) && isset($alt['live']) && is_array($alt['live'])){
+            foreach($alt['live'] as $mid => $sid){
+                if($sid){
+                    $links[] = [ 'url'=>'https://dltv.org/matches/'.$sid, 'series_id'=>$sid, 'match_id'=>$mid ];
+                    $links_from_series++;
+                }
+            }
+        }
+    }
+}
+
+if(!sizeof($links)){
     // Fallback 1: original selector
     $bases = $html->find('div[class=live__matches-item]');
     foreach($bases as $b){
@@ -239,6 +257,28 @@ if(!sizeof($links)){
                 if(!in_array($full,$links)){
                     $links[] = $full;
                     $links_from_anchors++;
+                }
+            }
+        }
+    }
+}
+
+if(!sizeof($links) && isset($_SERVER['HTTP_HOST'])){
+    // Fallback 3: local tmp matches.html anchor scan
+    $alt_matches = 'http://'.$_SERVER['HTTP_HOST'].'/tmp/matches.html';
+    $alt_html_gc = fetch_url_direct($alt_matches);
+    if($debug){ echo 'ALT HTML: '.$alt_matches.' len='.( $alt_html_gc ? strlen($alt_html_gc) : 0 )."<br/>"; }
+    if($alt_html_gc){
+        $ahtml = str_get_html($alt_html_gc);
+        foreach($ahtml->find('a') as $a){
+            if($a->hasAttribute('href')){
+                $href = explode('#',$a->getAttribute('href'))[0];
+                if(preg_match('#/matches/\\d+#',$href)){
+                    $full = (strpos($href,'http')===0) ? $href : ('https://dltv.org'.($href[0]=='/'?$href:'/'.$href));
+                    if(!in_array($full,$links)){
+                        $links[] = $full;
+                        $links_from_anchors++;
+                    }
                 }
             }
         }
